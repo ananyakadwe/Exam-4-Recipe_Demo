@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meal Finder</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f8f8;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+        }
+        h1 {
+            font-size: 2.5em;
+            color: #333;
+            margin-bottom: 25px;
+            text-align: left;
+        }
+        .input-section {
+            margin-bottom: 30px;
+        }
+        label {
+            display: block;
+            font-size: 1.1em;
+            color: #555;
+            margin-bottom: 8px;
+        }
+        input[type="text"] {
+            width: calc(100% - 22px); 
+            padding: 12px 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 1em;
+            box-sizing: border-box;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        input[type="text"]:focus {
+            border-color: #a0cffc;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.2);
+        }
+        #meal-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .meal-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #ffe8d4;
+            border: 1px solid #e0cfa6; 
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+            transition: transform 0.2s ease-in-out;
+        }
+        .meal-item:hover {
+            transform: translateY(-2px);
+        }
+        .meal-name {
+            font-size: 1.15em;
+            font-weight: 600;
+            color: #444;
+            flex-grow: 1;
+            margin-right: 15px;
+        }
+        .meal-thumbnail {
+            width: 80px;
+            height: 80px;
+            border-radius: 5px;
+            object-fit: cover; 
+            border: 1px solid #ddd;
+        }
+        .meal-thumbnail-placeholder {
+            width: 80px;
+            height: 80px;
+            border-radius: 5px;
+            background-color: #ccc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.8em;
+            color: #666;
+            text-align: center;
+            border: 1px solid #bbb;
+        }
+        #loading, #error-message, #no-results, #initial-prompt {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 1.1em;
+        }
+        #loading {
+            color: #007bff;
+        }
+        #error-message {
+            color: red;
+        }
+        #no-results {
+            color: #666;
+        }
+        #initial-prompt {
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Meal Finder</h1>
+
+        <div class="input-section">
+            <label for="mainIngredient">Main Ingredient:</label>
+            <input type="text" id="mainIngredient" placeholder="e.g., beef, chicken_breast, pasta (leave blank to show all)">
+        </div>
+
+        <div id="loading" style="display: none;">Loading meals...</div>
+        <div id="error-message" style="display: none;"></div>
+        <div id="no-results" style="display: none;"></div>
+        <div id="initial-prompt">Loading all recipes...</div> 
+
+        <ul id="meal-list">
+            </ul>
+    </div>
+
+    <script>
+        const mainIngredientInput = document.getElementById('mainIngredient');
+        const mealList = document.getElementById('meal-list');
+        const loadingMessage = document.getElementById('loading');
+        const errorMessage = document.getElementById('error-message');
+        const noResultsMessage = document.getElementById('no-results');
+        const initialPrompt = document.getElementById('initial-prompt');
+
+        // Function to clear messages
+        function clearMessages() {
+            loadingMessage.style.display = 'none';
+            errorMessage.style.display = 'none';
+            noResultsMessage.style.display = 'none';
+            initialPrompt.style.display = 'none'; 
+            mealList.innerHTML = ''; 
+        }
+
+        // Function to fetch meals
+        async function fetchMeals() {
+            clearMessages();
+            const ingredient = mainIngredientInput.value.trim();
+
+            loadingMessage.style.display = 'block';
+
+            let url = `http://localhost:3000/api/search-meals`;
+            if (ingredient) {
+                url += `?mainIngredient=${encodeURIComponent(ingredient)}`;
+            }
+
+            try {
+                const response = await fetch(url);
+                const meals = await response.json();
+
+                loadingMessage.style.display = 'none';
+
+                if (!response.ok) {
+                    errorMessage.textContent = meals.error || 'An unexpected error occurred.';
+                    errorMessage.style.display = 'block';
+                    return;
+                }
+
+                if (meals.length === 0) {
+                    noResultsMessage.textContent = `No meals found ${ingredient ? `for "${ingredient}"` : ''}. Try another ingredient or leave blank to see all.`;
+                    noResultsMessage.style.display = 'block';
+                    return;
+                }
+
+                meals.forEach(meal => {
+                    const listItem = document.createElement('li');
+                    listItem.className = 'meal-item';
+
+                    const mealName = document.createElement('span');
+                    mealName.className = 'meal-name';
+                    mealName.textContent = meal.name;
+
+                    if (meal.thumbnail) {
+                        const img = document.createElement('img');
+                        img.className = 'meal-thumbnail';
+                        img.src = meal.thumbnail;
+                        img.alt = meal.name;
+                        listItem.appendChild(mealName);
+                        listItem.appendChild(img);
+                    } else {
+                        const placeholder = document.createElement('div');
+                        placeholder.className = 'meal-thumbnail-placeholder';
+                        placeholder.textContent = 'No Image';
+                        listItem.appendChild(mealName);
+                        listItem.appendChild(placeholder);
+                    }
+                    mealList.appendChild(listItem);
+                });
+
+            } catch (error) {
+                console.error('Error fetching meals:', error);
+                loadingMessage.style.display = 'none';
+                errorMessage.textContent = 'Could not connect to the server or fetch data. Please ensure the backend is running.';
+                errorMessage.style.display = 'block';
+            }
+        }
+
+        mainIngredientInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                fetchMeals();
+            }
+        });
+        document.addEventListener('DOMContentLoaded', fetchMeals);
+    </script>
+</body>
+</html>
